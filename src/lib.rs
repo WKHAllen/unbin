@@ -1,4 +1,4 @@
-//! Efficient binary encoding compatible with `serde`.
+//! Binary serialization and deserialization compatible with [`serde`].
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
