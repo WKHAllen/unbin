@@ -7,47 +7,42 @@ use serde::ser::{
     SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
     SerializeTupleStruct, SerializeTupleVariant,
 };
-use serde::Serializer;
+use serde::{Serialize, Serializer};
 
 /// The binary encoder.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Encoder<W>(W)
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Encoder<'w, W>(&'w mut W)
 where
     W: Write;
 
-impl<W> Encoder<W>
+impl<'w, W> Encoder<'w, W>
 where
     W: Write,
 {
     /// Constructs a new binary encoder.
-    pub fn new(writer: W) -> Self {
+    pub fn new(writer: &'w mut W) -> Self {
         Self(writer)
     }
 
     /// Returns a mutable reference to the underlying writer.
     pub fn writer(&mut self) -> &mut W {
-        &mut self.0
-    }
-
-    /// Unwraps and returns the underlying writer.
-    pub fn into_writer(self) -> W {
         self.0
     }
 }
 
-impl<'a, W> Serializer for &'a mut Encoder<W>
+impl<'a, 'w, W> Serializer for &'a mut Encoder<'w, W>
 where
     W: Write,
 {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = SeqEncoder<'a, W>;
-    type SerializeTuple = TupleEncoder<'a, W>;
-    type SerializeTupleStruct = TupleStructEncoder<'a, W>;
-    type SerializeTupleVariant = TupleVariantEncoder<'a, W>;
-    type SerializeMap = MapEncoder<'a, W>;
-    type SerializeStruct = StructEncoder<'a, W>;
-    type SerializeStructVariant = StructVariantEncoder<'a, W>;
+    type SerializeSeq = SeqEncoder<'a, 'w, W>;
+    type SerializeTuple = TupleEncoder<'a, 'w, W>;
+    type SerializeTupleStruct = TupleStructEncoder<'a, 'w, W>;
+    type SerializeTupleVariant = TupleVariantEncoder<'a, 'w, W>;
+    type SerializeMap = MapEncoder<'a, 'w, W>;
+    type SerializeStruct = StructEncoder<'a, 'w, W>;
+    type SerializeStructVariant = StructVariantEncoder<'a, 'w, W>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         self.0.write_all(&[v as u8])?;
@@ -144,7 +139,7 @@ where
 
     fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         self.0.write_all(&[1])?;
         value.serialize(self)?;
@@ -179,7 +174,7 @@ where
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
@@ -192,7 +187,7 @@ where
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         if variant_index < 256 {
             self.0.write_all(&(variant_index as u8).to_be_bytes())?;
@@ -263,23 +258,23 @@ where
 }
 
 /// Encodes a sequence to binary.
-pub struct SeqEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct SeqEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> SeqEncoder<'a, W>
+impl<'a, 'w, W> SeqEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new sequence encoder.
-    pub fn new(encoder: &'a mut Encoder<W>, len: usize) -> crate::Result<Self> {
+    pub fn new(encoder: &'a mut Encoder<'w, W>, len: usize) -> crate::Result<Self> {
         let encoded_len = encode_len_large(len);
         encoder.0.write_all(&encoded_len)?;
         Ok(Self(encoder))
     }
 }
 
-impl<'a, W> SerializeSeq for SeqEncoder<'a, W>
+impl<'a, 'w, W> SerializeSeq for SeqEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -288,7 +283,7 @@ where
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -299,21 +294,21 @@ where
 }
 
 /// Encodes a tuple to binary.
-pub struct TupleEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct TupleEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> TupleEncoder<'a, W>
+impl<'a, 'w, W> TupleEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new tuple encoder.
-    pub fn new(encoder: &'a mut Encoder<W>) -> Self {
+    pub fn new(encoder: &'a mut Encoder<'w, W>) -> Self {
         Self(encoder)
     }
 }
 
-impl<'a, W> SerializeTuple for TupleEncoder<'a, W>
+impl<'a, 'w, W> SerializeTuple for TupleEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -322,7 +317,7 @@ where
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -333,21 +328,21 @@ where
 }
 
 /// Encodes a tuple struct to binary.
-pub struct TupleStructEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct TupleStructEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> TupleStructEncoder<'a, W>
+impl<'a, 'w, W> TupleStructEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new tuple struct encoder.
-    pub fn new(encoder: &'a mut Encoder<W>) -> Self {
+    pub fn new(encoder: &'a mut Encoder<'w, W>) -> Self {
         Self(encoder)
     }
 }
 
-impl<'a, W> SerializeTupleStruct for TupleStructEncoder<'a, W>
+impl<'a, 'w, W> SerializeTupleStruct for TupleStructEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -356,7 +351,7 @@ where
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -367,17 +362,17 @@ where
 }
 
 /// Encodes a tuple variant to binary.
-pub struct TupleVariantEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct TupleVariantEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> TupleVariantEncoder<'a, W>
+impl<'a, 'w, W> TupleVariantEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new tuple variant encoder.
     pub fn new(
-        encoder: &'a mut Encoder<W>,
+        encoder: &'a mut Encoder<'w, W>,
         name: &'static str,
         variant_index: u32,
     ) -> crate::Result<Self> {
@@ -390,7 +385,7 @@ where
     }
 }
 
-impl<'a, W> SerializeTupleVariant for TupleVariantEncoder<'a, W>
+impl<'a, 'w, W> SerializeTupleVariant for TupleVariantEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -399,7 +394,7 @@ where
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -410,23 +405,23 @@ where
 }
 
 /// Encodes a map to binary.
-pub struct MapEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct MapEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> MapEncoder<'a, W>
+impl<'a, 'w, W> MapEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new map encoder.
-    pub fn new(encoder: &'a mut Encoder<W>, len: usize) -> crate::Result<Self> {
+    pub fn new(encoder: &'a mut Encoder<'w, W>, len: usize) -> crate::Result<Self> {
         let encoded_len = encode_len_large(len);
         encoder.0.write_all(&encoded_len)?;
         Ok(Self(encoder))
     }
 }
 
-impl<'a, W> SerializeMap for MapEncoder<'a, W>
+impl<'a, 'w, W> SerializeMap for MapEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -435,14 +430,14 @@ where
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         key.serialize(&mut *self.0)
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -453,21 +448,21 @@ where
 }
 
 /// Encodes a struct to binary.
-pub struct StructEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct StructEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> StructEncoder<'a, W>
+impl<'a, 'w, W> StructEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new struct encoder.
-    pub fn new(encoder: &'a mut Encoder<W>) -> Self {
+    pub fn new(encoder: &'a mut Encoder<'w, W>) -> Self {
         Self(encoder)
     }
 }
 
-impl<'a, W> SerializeStruct for StructEncoder<'a, W>
+impl<'a, 'w, W> SerializeStruct for StructEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -476,7 +471,7 @@ where
 
     fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }
@@ -491,17 +486,17 @@ where
 }
 
 /// Encodes a struct variant to binary.
-pub struct StructVariantEncoder<'a, W>(&'a mut Encoder<W>)
+pub struct StructVariantEncoder<'a, 'w, W>(&'a mut Encoder<'w, W>)
 where
     W: Write;
 
-impl<'a, W> StructVariantEncoder<'a, W>
+impl<'a, 'w, W> StructVariantEncoder<'a, 'w, W>
 where
     W: Write,
 {
     /// Creates a new struct variant encoder.
     pub fn new(
-        encoder: &'a mut Encoder<W>,
+        encoder: &'a mut Encoder<'w, W>,
         name: &'static str,
         variant_index: u32,
     ) -> crate::Result<Self> {
@@ -514,7 +509,7 @@ where
     }
 }
 
-impl<'a, W> SerializeStructVariant for StructVariantEncoder<'a, W>
+impl<'a, 'w, W> SerializeStructVariant for StructVariantEncoder<'a, 'w, W>
 where
     W: Write,
 {
@@ -523,7 +518,7 @@ where
 
     fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde::Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
     }

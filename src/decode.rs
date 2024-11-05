@@ -11,32 +11,27 @@ use serde::de::{
 use serde::Deserializer;
 
 /// The binary decoder.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Decoder<'de, R>(R, PhantomData<&'de ()>)
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Decoder<'de, 'r, R>(&'r mut R, PhantomData<&'de ()>)
 where
     R: Read<'de>;
 
-impl<'de, R> Decoder<'de, R>
+impl<'de, 'r, R> Decoder<'de, 'r, R>
 where
     R: Read<'de>,
 {
     /// Constructs a new binary decoder.
-    pub fn new(reader: R) -> Self {
+    pub fn new(reader: &'r mut R) -> Self {
         Self(reader, PhantomData)
     }
 
     /// Returns a mutable reference to the underlying reader.
     pub fn reader(&mut self) -> &mut R {
-        &mut self.0
-    }
-
-    /// Unwraps and returns the underlying reader.
-    pub fn into_reader(self) -> R {
         self.0
     }
 }
 
-impl<'de, 'a, R> Deserializer<'de> for &'a mut Decoder<'de, R>
+impl<'de, 'a, 'r, R> Deserializer<'de> for &'a mut Decoder<'de, 'r, R>
 where
     R: Read<'de>,
 {
@@ -338,27 +333,27 @@ where
 }
 
 /// Decodes a sequence.
-pub struct SeqDecoder<'de, 'a, R>
+pub struct SeqDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// The underlying decoder.
-    decoder: &'a mut Decoder<'de, R>,
+    decoder: &'a mut Decoder<'de, 'r, R>,
     /// The number of items in the sequence.
     len: usize,
 }
 
-impl<'de, 'a, R> SeqDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> SeqDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// Creates a new sequence decoder.
-    pub fn new(decoder: &'a mut Decoder<'de, R>, len: usize) -> Self {
+    pub fn new(decoder: &'a mut Decoder<'de, 'r, R>, len: usize) -> Self {
         Self { decoder, len }
     }
 }
 
-impl<'de, 'a, R> SeqAccess<'de> for SeqDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> SeqAccess<'de> for SeqDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
@@ -383,27 +378,27 @@ where
 }
 
 /// Decodes a map.
-pub struct MapDecoder<'de, 'a, R>
+pub struct MapDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// The underlying decoder.
-    decoder: &'a mut Decoder<'de, R>,
+    decoder: &'a mut Decoder<'de, 'r, R>,
     /// The number of items in the map.
     len: usize,
 }
 
-impl<'de, 'a, R> MapDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> MapDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// Creates a new map decoder.
-    pub fn new(decoder: &'a mut Decoder<'de, R>, len: usize) -> Self {
+    pub fn new(decoder: &'a mut Decoder<'de, 'r, R>, len: usize) -> Self {
         Self { decoder, len }
     }
 }
 
-impl<'de, 'a, R> MapAccess<'de> for MapDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> MapAccess<'de> for MapDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
@@ -436,26 +431,26 @@ where
 }
 
 /// Decodes an enum.
-pub struct EnumDecoder<'de, 'a, R>(&'a mut Decoder<'de, R>)
+pub struct EnumDecoder<'de, 'a, 'r, R>(&'a mut Decoder<'de, 'r, R>)
 where
     R: Read<'de>;
 
-impl<'de, 'a, R> EnumDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> EnumDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// Creates a new enum decoder.
-    pub fn new(decoder: &'a mut Decoder<'de, R>) -> Self {
+    pub fn new(decoder: &'a mut Decoder<'de, 'r, R>) -> Self {
         Self(decoder)
     }
 }
 
-impl<'de, 'a, R> EnumAccess<'de> for EnumDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> EnumAccess<'de> for EnumDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     type Error = Error;
-    type Variant = VariantDecoder<'de, 'a, R>;
+    type Variant = VariantDecoder<'de, 'a, 'r, R>;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
@@ -468,21 +463,21 @@ where
 }
 
 /// Decodes an enum variant.
-pub struct VariantDecoder<'de, 'a, R>(&'a mut Decoder<'de, R>)
+pub struct VariantDecoder<'de, 'a, 'r, R>(&'a mut Decoder<'de, 'r, R>)
 where
     R: Read<'de>;
 
-impl<'de, 'a, R> VariantDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> VariantDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {
     /// Creates a new enum variant decoder.
-    pub fn new(decoder: &'a mut Decoder<'de, R>) -> Self {
+    pub fn new(decoder: &'a mut Decoder<'de, 'r, R>) -> Self {
         Self(decoder)
     }
 }
 
-impl<'de, 'a, R> VariantAccess<'de> for VariantDecoder<'de, 'a, R>
+impl<'de, 'a, 'r, R> VariantAccess<'de> for VariantDecoder<'de, 'a, 'r, R>
 where
     R: Read<'de>,
 {

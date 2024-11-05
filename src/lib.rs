@@ -11,11 +11,12 @@ mod read;
 mod util;
 mod write;
 
-pub use crate::decode::Decoder;
-pub use crate::encode::Encoder;
+use crate::decode::Decoder;
+use crate::encode::Encoder;
 pub use crate::error::{Error, Result, ValueType};
 use crate::read::{BytesReader, Read};
 use crate::write::{BytesWriter, Write};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 /// Serializes a value to binary.
@@ -23,13 +24,14 @@ pub fn serialize<T>(value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,
 {
-    let mut encoder = Encoder::new(BytesWriter::new());
+    let mut writer = BytesWriter::new();
+    let mut encoder = Encoder::new(&mut writer);
     value.serialize(&mut encoder)?;
-    Ok(encoder.into_writer().into_inner())
+    Ok(writer.into_inner())
 }
 
 /// Serializes a value to binary and writes it to the given writer.
-pub fn serialize_into<T, W>(value: &T, writer: W) -> Result<()>
+pub fn serialize_into<T, W>(value: &T, writer: &mut W) -> Result<()>
 where
     T: Serialize,
     W: Write,
@@ -45,14 +47,15 @@ where
     T: Deserialize<'de>,
     'a: 'de,
 {
-    let mut decoder = Decoder::new(BytesReader::new(bytes));
+    let mut reader = BytesReader::new(bytes);
+    let mut decoder = Decoder::new(&mut reader);
     T::deserialize(&mut decoder)
 }
 
 /// Deserializes binary data from the given reader into a new instance of `T`.
-pub fn deserialize_from<'de, T, R>(reader: R) -> Result<T>
+pub fn deserialize_from<'de, T, R>(reader: &mut R) -> Result<T>
 where
-    T: Deserialize<'de>,
+    T: DeserializeOwned,
     R: Read<'de>,
 {
     let mut decoder = Decoder::new(reader);
@@ -402,12 +405,11 @@ mod tests {
         // dbg!(&deserialized_value);
 
         // test borrows with file
-        let file = tempfile::tempfile().unwrap();
-        let mut encoder = Encoder::new(file);
+        let mut file = tempfile::tempfile().unwrap();
+        let mut encoder = Encoder::new(&mut file);
         value.serialize(&mut encoder).unwrap();
-        let mut file = encoder.into_writer();
         file.rewind().unwrap();
-        let mut decoder = Decoder::new(file);
+        let mut decoder = Decoder::new(&mut file);
         let res = MyStruct::deserialize(&mut decoder);
         assert!(matches!(
             res,
@@ -415,12 +417,11 @@ mod tests {
         ));
 
         // test no borrows with file
-        let file = tempfile::tempfile().unwrap();
-        let mut encoder = Encoder::new(file);
+        let mut file = tempfile::tempfile().unwrap();
+        let mut encoder = Encoder::new(&mut file);
         value_no_borrows.serialize(&mut encoder).unwrap();
-        let mut file = encoder.into_writer();
         file.rewind().unwrap();
-        let mut decoder = Decoder::new(file);
+        let mut decoder = Decoder::new(&mut file);
         let deserialized_value_no_borrows = MyStructNoBorrows::deserialize(&mut decoder).unwrap();
         assert_eq!(value_no_borrows, deserialized_value_no_borrows);
         // dbg!(&deserialized_value_no_borrows);
@@ -437,5 +438,18 @@ mod tests {
             bincode_serialized_value.len()
         );
         println!("this encoded size:         {}", serialized_value.len());
+
+        fn assert_send<T: Send>(_x: &T) {}
+        fn assert_sync<T: Sync>(_x: &T) {}
+
+        assert_send(&Encoder::new(&mut BytesWriter::new()));
+        assert_sync(&Encoder::new(&mut BytesWriter::new()));
+        assert_send(&Decoder::new(&mut BytesReader::new(&[])));
+        assert_sync(&Decoder::new(&mut BytesReader::new(&[])));
+
+        assert_send(&Encoder::new(&mut tempfile::tempfile().unwrap()));
+        assert_sync(&Encoder::new(&mut tempfile::tempfile().unwrap()));
+        assert_send(&Decoder::new(&mut tempfile::tempfile().unwrap()));
+        assert_sync(&Decoder::new(&mut tempfile::tempfile().unwrap()));
     }
 }
