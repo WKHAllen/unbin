@@ -65,209 +65,307 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use once_cell::sync::Lazy;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::io::Seek;
 
-    #[test]
-    fn test() {
-        macro_rules! map {
-            ( $( $key:expr => $value:expr ),* $(,)? ) => {{
-                #[allow(unused_mut)]
-                let mut m = ::std::collections::HashMap::new();
-                $(
-                    m.insert($key, $value);
-                )*
-                m
-            }};
-        }
+    macro_rules! map {
+        ( $( $key:expr => $value:expr ),* $(,)? ) => {{
+            #[allow(unused_mut)]
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, $value);
+            )*
+            m
+        }};
+    }
 
-        #[allow(clippy::enum_variant_names)]
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        enum MyEnum {
-            UnitVariant,
-            NewtypeVariant(u8),
-            TupleVariant((), bool, u8),
-            StructVariant { a: (), b: bool, c: u8 },
-        }
-
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyUnitStruct;
-
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyNewtypeStruct(u8);
-
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyTupleStruct((), bool, u8);
-
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyInnerStruct {
+    #[allow(clippy::enum_variant_names)]
+    #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+    enum MyEnum {
+        #[default]
+        UnitVariant,
+        NewtypeVariant(u8),
+        TupleVariant((), bool, u8),
+        StructVariant {
             a: (),
             b: bool,
             c: u8,
-        }
+        },
+    }
 
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyStruct<'a> {
-            bool_field: bool,
-            i8_field: i8,
-            i16_field: i16,
-            i32_field: i32,
-            i64_field: i64,
-            i128_field: i128,
-            u8_field: u8,
-            u16_field: u16,
-            u32_field: u32,
-            u64_field: u64,
-            u128_field: u128,
-            f32_field: f32,
-            f64_field: f64,
-            char_field: char,
-            str_field: &'a str,
-            string_field: String,
-            bytes_field: &'a [u8],
-            option_none_field: Option<u8>,
-            option_some_field: Option<u8>,
-            unit_field: (),
-            unit_struct_field: MyUnitStruct,
-            unit_variant_field: MyEnum,
-            newtype_struct_field: MyNewtypeStruct,
-            newtype_variant_field: MyEnum,
-            seq_field: Vec<u8>,
-            tuple_field: ((), bool, u8),
-            tuple_struct_field: MyTupleStruct,
-            tuple_variant_field: MyEnum,
-            map_field: HashMap<u8, u8>,
-            struct_field: MyInnerStruct,
-            struct_variant_field: MyEnum,
-        }
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyUnitStruct;
 
-        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-        struct MyStructNoBorrows {
-            bool_field: bool,
-            i8_field: i8,
-            i16_field: i16,
-            i32_field: i32,
-            i64_field: i64,
-            i128_field: i128,
-            u8_field: u8,
-            u16_field: u16,
-            u32_field: u32,
-            u64_field: u64,
-            u128_field: u128,
-            f32_field: f32,
-            f64_field: f64,
-            char_field: char,
-            string_field: String,
-            bytes_field: [u8; 4],
-            option_none_field: Option<u8>,
-            option_some_field: Option<u8>,
-            unit_field: (),
-            unit_struct_field: MyUnitStruct,
-            unit_variant_field: MyEnum,
-            newtype_struct_field: MyNewtypeStruct,
-            newtype_variant_field: MyEnum,
-            seq_field: Vec<u8>,
-            tuple_field: ((), bool, u8),
-            tuple_struct_field: MyTupleStruct,
-            tuple_variant_field: MyEnum,
-            map_field: HashMap<u8, u8>,
-            struct_field: MyInnerStruct,
-            struct_variant_field: MyEnum,
-        }
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyNewtypeStruct(u8);
 
-        let value = MyStruct {
-            bool_field: true,
-            i8_field: -128,
-            i16_field: -32768,
-            i32_field: -2147483648,
-            i64_field: -9223372036854775808,
-            i128_field: -170141183460469231731687303715884105728,
-            u8_field: 255,
-            u16_field: 65535,
-            u32_field: 4294967295,
-            u64_field: 18446744073709551615,
-            u128_field: 340282366920938463463374607431768211455,
-            f32_field: 6.25,
-            f64_field: 3.125,
-            char_field: 'A',
-            str_field: "my string",
-            string_field: "my owned string".to_owned(),
-            bytes_field: &[0, 1, 2, 3],
-            option_none_field: None,
-            option_some_field: Some(4),
-            unit_field: (),
-            unit_struct_field: MyUnitStruct,
-            unit_variant_field: MyEnum::UnitVariant,
-            newtype_struct_field: MyNewtypeStruct(5),
-            newtype_variant_field: MyEnum::NewtypeVariant(6),
-            seq_field: vec![7, 8, 9, 10, 11],
-            tuple_field: ((), false, 12),
-            tuple_struct_field: MyTupleStruct((), true, 13),
-            tuple_variant_field: MyEnum::TupleVariant((), false, 14),
-            map_field: map! {
-                15 => 16,
-                17 => 18,
-                19 => 20,
-            },
-            struct_field: MyInnerStruct {
-                a: (),
-                b: true,
-                c: 21,
-            },
-            struct_variant_field: MyEnum::StructVariant {
-                a: (),
-                b: false,
-                c: 22,
-            },
-        };
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyTupleStruct((), bool, u8);
 
-        let value_no_borrows = MyStructNoBorrows {
-            bool_field: true,
-            i8_field: -128,
-            i16_field: -32768,
-            i32_field: -2147483648,
-            i64_field: -9223372036854775808,
-            i128_field: -170141183460469231731687303715884105728,
-            u8_field: 255,
-            u16_field: 65535,
-            u32_field: 4294967295,
-            u64_field: 18446744073709551615,
-            u128_field: 340282366920938463463374607431768211455,
-            f32_field: 6.25,
-            f64_field: 3.125,
-            char_field: 'A',
-            string_field: "my owned string".to_owned(),
-            bytes_field: [0, 1, 2, 3],
-            option_none_field: None,
-            option_some_field: Some(4),
-            unit_field: (),
-            unit_struct_field: MyUnitStruct,
-            unit_variant_field: MyEnum::UnitVariant,
-            newtype_struct_field: MyNewtypeStruct(5),
-            newtype_variant_field: MyEnum::NewtypeVariant(6),
-            seq_field: vec![7, 8, 9, 10, 11],
-            tuple_field: ((), false, 12),
-            tuple_struct_field: MyTupleStruct((), true, 13),
-            tuple_variant_field: MyEnum::TupleVariant((), false, 14),
-            map_field: map! {
-                15 => 16,
-                17 => 18,
-                19 => 20,
-            },
-            struct_field: MyInnerStruct {
-                a: (),
-                b: true,
-                c: 21,
-            },
-            struct_variant_field: MyEnum::StructVariant {
-                a: (),
-                b: false,
-                c: 22,
-            },
-        };
+    #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+    struct MyInnerStruct {
+        a: (),
+        b: bool,
+        c: u8,
+    }
 
-        let serialized_value = serialize(&value).unwrap();
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyStruct<'a> {
+        bool_field: bool,
+        i8_field: i8,
+        i16_field: i16,
+        i32_field: i32,
+        i64_field: i64,
+        i128_field: i128,
+        u8_field: u8,
+        u16_field: u16,
+        u32_field: u32,
+        u64_field: u64,
+        u128_field: u128,
+        f32_field: f32,
+        f64_field: f64,
+        char_field: char,
+        str_field: &'a str,
+        string_field: String,
+        bytes_field: &'a [u8],
+        option_none_field: Option<u8>,
+        option_some_field: Option<u8>,
+        unit_field: (),
+        unit_struct_field: MyUnitStruct,
+        unit_variant_field: MyEnum,
+        newtype_struct_field: MyNewtypeStruct,
+        newtype_variant_field: MyEnum,
+        seq_field: Vec<u8>,
+        tuple_field: ((), bool, u8),
+        tuple_struct_field: MyTupleStruct,
+        tuple_variant_field: MyEnum,
+        map_field: HashMap<u8, u8>,
+        struct_field: MyInnerStruct,
+        struct_variant_field: MyEnum,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyStructNoBorrows {
+        bool_field: bool,
+        i8_field: i8,
+        i16_field: i16,
+        i32_field: i32,
+        i64_field: i64,
+        i128_field: i128,
+        u8_field: u8,
+        u16_field: u16,
+        u32_field: u32,
+        u64_field: u64,
+        u128_field: u128,
+        f32_field: f32,
+        f64_field: f64,
+        char_field: char,
+        string_field: String,
+        bytes_field: [u8; 4],
+        option_none_field: Option<u8>,
+        option_some_field: Option<u8>,
+        unit_field: (),
+        unit_struct_field: MyUnitStruct,
+        unit_variant_field: MyEnum,
+        newtype_struct_field: MyNewtypeStruct,
+        newtype_variant_field: MyEnum,
+        seq_field: Vec<u8>,
+        tuple_field: ((), bool, u8),
+        tuple_struct_field: MyTupleStruct,
+        tuple_variant_field: MyEnum,
+        map_field: HashMap<u8, u8>,
+        struct_field: MyInnerStruct,
+        struct_variant_field: MyEnum,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct MyStructWithSkips<'a> {
+        bool_field: bool,
+        #[serde(skip)]
+        i8_field: i8,
+        i16_field: i16,
+        #[serde(skip)]
+        i32_field: i32,
+        i64_field: i64,
+        #[serde(skip)]
+        i128_field: i128,
+        u8_field: u8,
+        #[serde(skip)]
+        u16_field: u16,
+        u32_field: u32,
+        #[serde(skip)]
+        u64_field: u64,
+        u128_field: u128,
+        #[serde(skip)]
+        f32_field: f32,
+        f64_field: f64,
+        #[serde(skip)]
+        char_field: char,
+        str_field: &'a str,
+        #[serde(skip)]
+        string_field: String,
+        bytes_field: &'a [u8],
+        #[serde(skip)]
+        option_none_field: Option<u8>,
+        option_some_field: Option<u8>,
+        #[serde(skip)]
+        unit_field: (),
+        unit_struct_field: MyUnitStruct,
+        #[serde(skip)]
+        unit_variant_field: MyEnum,
+        newtype_struct_field: MyNewtypeStruct,
+        #[serde(skip)]
+        newtype_variant_field: MyEnum,
+        seq_field: Vec<u8>,
+        #[serde(skip)]
+        tuple_field: ((), bool, u8),
+        tuple_struct_field: MyTupleStruct,
+        #[serde(skip)]
+        tuple_variant_field: MyEnum,
+        map_field: HashMap<u8, u8>,
+        #[serde(skip)]
+        struct_field: MyInnerStruct,
+        struct_variant_field: MyEnum,
+    }
+
+    static VALUE: Lazy<MyStruct<'_>> = Lazy::new(|| MyStruct {
+        bool_field: true,
+        i8_field: -128,
+        i16_field: -32768,
+        i32_field: -2147483648,
+        i64_field: -9223372036854775808,
+        i128_field: -170141183460469231731687303715884105728,
+        u8_field: 255,
+        u16_field: 65535,
+        u32_field: 4294967295,
+        u64_field: 18446744073709551615,
+        u128_field: 340282366920938463463374607431768211455,
+        f32_field: 6.25,
+        f64_field: 3.125,
+        char_field: 'A',
+        str_field: "my string",
+        string_field: "my owned string".to_owned(),
+        bytes_field: &[0, 1, 2, 3],
+        option_none_field: None,
+        option_some_field: Some(4),
+        unit_field: (),
+        unit_struct_field: MyUnitStruct,
+        unit_variant_field: MyEnum::UnitVariant,
+        newtype_struct_field: MyNewtypeStruct(5),
+        newtype_variant_field: MyEnum::NewtypeVariant(6),
+        seq_field: vec![7, 8, 9, 10, 11],
+        tuple_field: ((), false, 12),
+        tuple_struct_field: MyTupleStruct((), true, 13),
+        tuple_variant_field: MyEnum::TupleVariant((), false, 14),
+        map_field: map! {
+            15 => 16,
+            17 => 18,
+            19 => 20,
+        },
+        struct_field: MyInnerStruct {
+            a: (),
+            b: true,
+            c: 21,
+        },
+        struct_variant_field: MyEnum::StructVariant {
+            a: (),
+            b: false,
+            c: 22,
+        },
+    });
+
+    static VALUE_NO_BORROWS: Lazy<MyStructNoBorrows> = Lazy::new(|| MyStructNoBorrows {
+        bool_field: true,
+        i8_field: -128,
+        i16_field: -32768,
+        i32_field: -2147483648,
+        i64_field: -9223372036854775808,
+        i128_field: -170141183460469231731687303715884105728,
+        u8_field: 255,
+        u16_field: 65535,
+        u32_field: 4294967295,
+        u64_field: 18446744073709551615,
+        u128_field: 340282366920938463463374607431768211455,
+        f32_field: 6.25,
+        f64_field: 3.125,
+        char_field: 'A',
+        string_field: "my owned string".to_owned(),
+        bytes_field: [0, 1, 2, 3],
+        option_none_field: None,
+        option_some_field: Some(4),
+        unit_field: (),
+        unit_struct_field: MyUnitStruct,
+        unit_variant_field: MyEnum::UnitVariant,
+        newtype_struct_field: MyNewtypeStruct(5),
+        newtype_variant_field: MyEnum::NewtypeVariant(6),
+        seq_field: vec![7, 8, 9, 10, 11],
+        tuple_field: ((), false, 12),
+        tuple_struct_field: MyTupleStruct((), true, 13),
+        tuple_variant_field: MyEnum::TupleVariant((), false, 14),
+        map_field: map! {
+            15 => 16,
+            17 => 18,
+            19 => 20,
+        },
+        struct_field: MyInnerStruct {
+            a: (),
+            b: true,
+            c: 21,
+        },
+        struct_variant_field: MyEnum::StructVariant {
+            a: (),
+            b: false,
+            c: 22,
+        },
+    });
+
+    static VALUE_WITH_SKIPS: Lazy<MyStructWithSkips<'_>> = Lazy::new(|| MyStructWithSkips {
+        bool_field: true,
+        i8_field: Default::default(),
+        i16_field: -32768,
+        i32_field: Default::default(),
+        i64_field: -9223372036854775808,
+        i128_field: Default::default(),
+        u8_field: 255,
+        u16_field: Default::default(),
+        u32_field: 4294967295,
+        u64_field: Default::default(),
+        u128_field: 340282366920938463463374607431768211455,
+        f32_field: Default::default(),
+        f64_field: 3.125,
+        char_field: Default::default(),
+        str_field: "my string",
+        string_field: Default::default(),
+        bytes_field: &[0, 1, 2, 3],
+        option_none_field: Default::default(),
+        option_some_field: Some(4),
+        unit_field: Default::default(),
+        unit_struct_field: MyUnitStruct,
+        unit_variant_field: Default::default(),
+        newtype_struct_field: MyNewtypeStruct(5),
+        newtype_variant_field: Default::default(),
+        seq_field: vec![7, 8, 9, 10, 11],
+        tuple_field: Default::default(),
+        tuple_struct_field: MyTupleStruct((), true, 13),
+        tuple_variant_field: Default::default(),
+        map_field: map! {
+            15 => 16,
+            17 => 18,
+            19 => 20,
+        },
+        struct_field: Default::default(),
+        struct_variant_field: MyEnum::StructVariant {
+            a: (),
+            b: false,
+            c: 22,
+        },
+    });
+
+    #[test]
+    fn test_encoded_bytes() {
+        let serialized_value = serialize(&*VALUE).unwrap();
         let mut serialized_iter = serialized_value.iter();
 
         let mut next_n = |n: usize| {
@@ -401,13 +499,15 @@ mod tests {
 
         // deserialize
         let deserialized_value = deserialize::<MyStruct>(&serialized_value).unwrap();
-        assert_eq!(value, deserialized_value);
-        // dbg!(&deserialized_value);
+        assert_eq!(*VALUE, deserialized_value);
+    }
 
+    #[test]
+    fn test_borrows_with_file() {
         // test borrows with file
         let mut file = tempfile::tempfile().unwrap();
         let mut encoder = Encoder::new(&mut file);
-        value.serialize(&mut encoder).unwrap();
+        VALUE.serialize(&mut encoder).unwrap();
         file.rewind().unwrap();
         let mut decoder = Decoder::new(&mut file);
         let res = MyStruct::deserialize(&mut decoder);
@@ -415,30 +515,29 @@ mod tests {
             res,
             Result::Err(Error::Custom(message)) if message.as_str() == "invalid type: string \"my string\", expected a borrowed string"
         ));
+    }
 
+    #[test]
+    fn test_no_borrows_with_file() {
         // test no borrows with file
         let mut file = tempfile::tempfile().unwrap();
         let mut encoder = Encoder::new(&mut file);
-        value_no_borrows.serialize(&mut encoder).unwrap();
+        VALUE_NO_BORROWS.serialize(&mut encoder).unwrap();
         file.rewind().unwrap();
         let mut decoder = Decoder::new(&mut file);
         let deserialized_value_no_borrows = MyStructNoBorrows::deserialize(&mut decoder).unwrap();
-        assert_eq!(value_no_borrows, deserialized_value_no_borrows);
-        // dbg!(&deserialized_value_no_borrows);
+        assert_eq!(*VALUE_NO_BORROWS, deserialized_value_no_borrows);
+    }
 
-        // check sizes
-        let serde_json_serialized_value = serde_json::to_vec(&value).unwrap();
-        let bincode_serialized_value = bincode::serialize(&value).unwrap();
-        println!(
-            "`serde_json` encoded size: {}",
-            serde_json_serialized_value.len()
-        );
-        println!(
-            "`bincode` encoded size:    {}",
-            bincode_serialized_value.len()
-        );
-        println!("this encoded size:         {}", serialized_value.len());
+    #[test]
+    fn test_skips() {
+        let serialized_value = serialize(&*VALUE_WITH_SKIPS).unwrap();
+        let deserialized_value = deserialize::<MyStructWithSkips>(&serialized_value).unwrap();
+        assert_eq!(*VALUE_WITH_SKIPS, deserialized_value);
+    }
 
+    #[test]
+    fn test_send_sync() {
         fn assert_send<T: Send>(_x: &T) {}
         fn assert_sync<T: Sync>(_x: &T) {}
 

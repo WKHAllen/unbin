@@ -40,9 +40,6 @@ pub enum ValueType {
 /// Library-level error.
 #[derive(Debug, Error)]
 pub enum Error {
-    /// Field skipping is not allowed.
-    #[error("field skipping is not allowed, but field `{0}` was marked to be skipped")]
-    FieldSkippingNotAllowed(&'static str),
     /// Sequences of unknown length are not allowed.
     #[error("sequences of unknown length are not allowed")]
     UnknownSeqLengthNotAllowed,

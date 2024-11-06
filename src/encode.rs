@@ -476,10 +476,6 @@ where
         value.serialize(&mut *self.0)
     }
 
-    fn skip_field(&mut self, key: &'static str) -> Result<(), Self::Error> {
-        Err(Error::FieldSkippingNotAllowed(key))
-    }
-
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
@@ -521,10 +517,6 @@ where
         T: ?Sized + Serialize,
     {
         value.serialize(&mut *self.0)
-    }
-
-    fn skip_field(&mut self, key: &'static str) -> Result<(), Self::Error> {
-        Err(Error::FieldSkippingNotAllowed(key))
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
