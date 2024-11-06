@@ -37,7 +37,6 @@ pub trait Read<'de> {
 
     /// Reads and returns a dynamically sized collection of bytes, assuming they
     /// are encoded with a small length.
-    #[allow(dead_code)]
     fn read_bytes_with_small_len(&mut self) -> crate::Result<Vec<u8>> {
         let len = self.read_n_array::<1>()?;
         let decoded_len = decode_len_small(len[0]);
